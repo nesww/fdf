@@ -6,6 +6,7 @@ INCLUDE_DIR = include/
 SOURCE_DIR = src/
 
 MLX_FLAGS = -lmlx42 -lglfw -pthread -lm -ldl
+LINKER_FLAGS = -lft -lftio -lgnl
 
 all: clean build
 
@@ -14,7 +15,7 @@ clean:
 
 build: $(INCLUDE_DIR)* $(SOURCE_DIR)$(NAME).c
 	mkdir -p $(BUILD_DIR)
-	gcc $(FLAGS) -g $(MLX_INCLUDE) -o $(BUILD_DIR)$(NAME) $(SOURCE_DIR)$(NAME).c $(MLX_FLAGS)
+	gcc $(FLAGS) -g $(MLX_INCLUDE) -o $(BUILD_DIR)$(NAME) $(SOURCE_DIR)$(NAME).c $(MLX_FLAGS) $(LINKER_FLAGS)
 	
 include:
 	sudo cp $(INCLUDE_DIR)$(NAME).h /usr/local/include
