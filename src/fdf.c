@@ -1,13 +1,12 @@
-#include "libft/ftio/ftio.h"
 #include <MLX42/MLX42.h>
 #include <fcntl.h>
 #include <fdf.h>
-#include <ftprintf/ftprintf.h>
 #include <gnl/get_next_line.h>
+#include <libft/ftio/ftio.h>
+#include <libft/ftypes.h>
 #include <libft/libft.h>
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> //for free/malloc
 #include <unistd.h>
 
 #define WIN_WIDTH 800
@@ -53,7 +52,6 @@ void draw_line(mlx_image_t *img, vec2 *src, vec2 *dst, u32 color) {
   vec2 cursor = {src->x, src->y};
   // move by x
   if (ft_abs(dx) >= ft_abs(dy)) {
-    io_printf("dx is bigger: %d\n", dx);
     for (; cursor.x != dst->x; cursor.x += incX) {
       mlx_put_pixel(img, cursor.x, cursor.y, color);
       e += ft_abs(dy);
@@ -65,7 +63,6 @@ void draw_line(mlx_image_t *img, vec2 *src, vec2 *dst, u32 color) {
   }
   // move by y
   else {
-    io_printf("dy is bigger: %d\n", dy);
     for (; cursor.y != dst->y; cursor.y += incY) {
       mlx_put_pixel(img, cursor.x, cursor.y, color);
       e += ft_abs(dx);
@@ -75,6 +72,14 @@ void draw_line(mlx_image_t *img, vec2 *src, vec2 *dst, u32 color) {
       }
     }
   }
+}
+
+void free_buf(i32 **buf, i32 len) {
+  for (u32 j = 0; j < (u32)len; ++j) {
+    if (buf[j])
+      free(buf[j]);
+  }
+  free(buf);
 }
 
 vec2 rotate_line(vec2 *src, vec2 *dst, double angle) {
@@ -97,6 +102,42 @@ void clear_image(mlx_image_t *img, u32 color) {
   }
 }
 
+i32 **load_fdf(int fd, char *fdf_path) {
+  i32 **buf = malloc(sizeof(i32 *) * 4096);
+  if (!buf) {
+    io_printf("error: could not malloc for buf of fdf\n");
+    return NULL;
+  }
+  char *line = get_next_line(fd);
+  if (!line) {
+    io_printf("error: initial line was NULL from gnl\n");
+    return NULL;
+  }
+
+  u32 i = 0;
+  io_printf("loading fdf from `%s` into memory...", fdf_path);
+  while (line) {
+
+    u32 word_count = 0;
+    char **split = ft_split(line, ' ');
+    while (split[word_count])
+      ++word_count;
+
+    buf[i] = malloc(sizeof(i32) * word_count);
+    for (u32 j = 0; j < word_count; ++j) {
+      buf[i][j] = ft_atoi(split[j]);
+      free(split[j]);
+    }
+    free(split);
+    free(line);
+
+    line = get_next_line(fd);
+    ++i;
+  }
+  io_printf("success\n");
+  return buf;
+}
+
 int main(int argc, char **argv) {
   io_printf("Startup of fdf...\n");
   // load  of file from args
@@ -115,24 +156,27 @@ int main(int argc, char **argv) {
   }
 
   // load fdf into a buffer
-  u32 **buf = malloc(4096);
-  char *line = get_next_line(fdf_file);
-  u32 i = 0;
-  while (line) {
-    u32 line_len = ft_strlen(line);
-    buf[i] = malloc(line_len);
-    // char **split_line = ft_split(line, ' ');
-    u32 word_count = count_words(line, ' ') - 1;
-    io_printf("word_count of line \n %s %d\n\n", line, word_count);
-    // increment
-    line = get_next_line(fdf_file);
-    ++i;
+  i32 **buf = load_fdf(fdf_file, fdf_path);
+  if (!buf) {
+    io_printf("fatal: failed to load `%s` into memory, exiting\n");
   }
+  i32 buf_len = 0;
+  while (buf[buf_len])
+    buf_len++;
+  free_buf(buf, buf_len);
+  io_printf("closing fd\n", fdf_path);
+  close(fdf_file);
+
+  //////////////////////
+  /// graphical part ///
+  //////////////////////
 
   // start window
+  io_printf("initializing mlx_window...");
   mlx_t *mlx = mlx_init(WIN_WIDTH, WIN_HEIGHT, "fdf", 0);
   if (!mlx)
     return 1;
+  io_printf("success\n");
 
   mlx_image_t *img = mlx_new_image(mlx, WIN_WIDTH, WIN_HEIGHT);
   if (!img || (mlx_image_to_window(mlx, img, 0, 0)) < 0)
@@ -154,7 +198,9 @@ int main(int argc, char **argv) {
   draw_line(img, &src, &rotated_right, BLUE);
   draw_line(img, &rotated_left, &rotated_right, 0xff000077);
   draw_circle(img, &src, 5, RED);
+  io_printf("starting mlx loop\n");
   mlx_loop(mlx);
+  io_printf("closing...\n");
   mlx_terminate(mlx);
   return 0;
 }
