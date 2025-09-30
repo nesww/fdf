@@ -198,10 +198,6 @@ u8 normalize_hex(u32 hex) {
 
 void draw_buf(mlx_image_t *img, fdfmap_t *fdf, u32 offset) {
 
-  io_printf("draw_buf called with offset= %d\n", offset);
-  io_printf("fdf->len: %d\n", fdf->len);
-  io_printf("fdf->width: %d\n", fdf->width);
-
   vec2 start = {(WIN_WIDTH - (fdf->width * offset)) / 2,
                 (WIN_HEIGHT - (fdf->len * offset)) / 2};
 
@@ -209,7 +205,7 @@ void draw_buf(mlx_image_t *img, fdfmap_t *fdf, u32 offset) {
     start.x = 0;
     offset = 2;
   }
-  if (start.y < 0 || start.y > WIN_WIDTH) {
+  if (start.y < 0 || start.y > WIN_HEIGHT) {
     start.y = 0;
     offset = 2;
   }
@@ -220,23 +216,18 @@ void draw_buf(mlx_image_t *img, fdfmap_t *fdf, u32 offset) {
     u32 j = 0;
     while (fdf->buf[i][j] != INT_MAX) {
       vec2 pos = {start.x + j * offset, start.y + i * offset};
-      // io_printf("pos(%d,%d)\n", pos.x, pos.y);
       if (pos.x < 0 || pos.x >= (i32)WIN_WIDTH || pos.y < 0 ||
           pos.y >= (i32)WIN_HEIGHT) {
-        // io_printf("warning: computed pos(%d,%d), out of image, skipping\n",
-        //          pos.x, pos.y);
         ++j;
         continue;
       }
 
-      // if (i % 5 && j % 5) {
       Color c = {normalize_hex(0x66 + fdf->buf[i][j] * COLOR_SCALE),
                  normalize_hex(0x88 + fdf->buf[i][j] * COLOR_SCALE),
                  normalize_hex(0x33 + fdf->buf[i][j] * COLOR_SCALE), 0xff};
 
       // io_printf("Color: (%x, %x, %x, %x)\n", c.r, c.g, c.b, c.a);
       draw_square(img, &pos, offset / 1.8, &c);
-      //}
       ++j;
     }
   }
@@ -312,7 +303,6 @@ iso_point_t *iso_points(fdfmap_t *fdf, u32 offset_x, u32 offset_y, vec2 *origin,
         east_conn = malloc(sizeof(vec2));
         if (!east_conn) {
           clean_iso_points(points, points_cursor);
-          free(points);
           return NULL;
         }
         east_conn->x = ((x + 1) - y) * offset_x + origin->x;
@@ -376,6 +366,7 @@ void redraw(vars_t *vars) {
     if (points[i].south_conn)
       draw_line(vars->img, points[i].pos, points[i].south_conn, 0xffffffff);
   }
+  clean_iso_points(points, vars->fdf->len * vars->fdf->width);
 }
 
 void key_handler(mlx_key_data_t keydata, void *param) {
@@ -463,7 +454,7 @@ int main(int argc, char **argv) {
     if (points[i].south_conn)
       draw_line(img, points[i].pos, points[i].south_conn, 0xffffffff);
   }
-  free(points);
+  clean_iso_points(points, fdf->len * fdf->width);
 
   io_printf("starting mlx loop\n");
   vars_t vars = {mlx,          img,          fdf,        height_scale,
